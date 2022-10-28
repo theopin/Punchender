@@ -18,6 +18,7 @@ BEGIN -- Begin Transaction, auto rolls back if exception thrown
     VALUES ( email, name, cc1, cc2);
 
     IF kind in ('BACKER', 'BOTH')  THEN
+
         INSERT INTO Backers
         VALUES ( email, street, num, zip, country);
         END IF;
@@ -73,7 +74,7 @@ BEGIN -- your code here
             WHERE r.email = backing.email 
             AND r.pid = backing.id
             ) 
-        /* NOT within 90 days of deadline*/
+        /* After 90 days of deadline*/
         AND Abs(backing.request - proj_deadline) > 90
         THEN 
             INSERT INTO Refunds
@@ -247,7 +248,7 @@ delete from refunds *;
 delete from backs *;
 INSERT INTO Backs VALUES ( 'ddegowe2r@wiley.com','Oldsmobile',20,	'9/30/2022','1/7/2023',337.5);
 
--- Expect new row into refunds -91 days
+-- Expect No change -91 days
 update backs set request = '10/8/2022';
 call print_refunds();
 call auto_reject(283810751, '10/8/2022');
