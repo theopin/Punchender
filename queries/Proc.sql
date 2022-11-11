@@ -327,7 +327,7 @@ BEGIN -- your code here
     RETURN QUERY
     SELECT email, name
     FROM Users
-    WHERE email IN (SELECT email FROM Verifies) AND
+    WHERE email IN (SELECT email FROM Verifies) AND email IN
     (SELECT * FROM
     /* Find email of superbackers based on the two conditions */
     /* C1: funded at least 5 successful projects with at least 3 different ptypes */
@@ -338,6 +338,17 @@ BEGIN -- your code here
     ) AS sb)
     ORDER BY email;
 END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION is_successful_proj(p_id INT) RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1
+        FROM Projects P
+        WHERE P.id = p_id
+        AND (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id) >= P.goal
+    );
+END
 $$ LANGUAGE plpgsql;
 
 /* Function #2  */
@@ -354,7 +365,7 @@ SELECT pr.id, pr.name, pr.email, (SELECT SUM(amount) FROM Backs B WHERE B.id = p
     FROM
     (SELECT DISTINCT P.id, P.name, P.email, P.ptype, P.deadline, (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id)/P.goal AS ratio
     FROM Projects P INNER JOIN Backs B ON P.id = B.id) AS pr
-    WHERE ptype = pr.ptype 
+    WHERE pr.ptype = ptype 
     AND pr.deadline < today 
     AND ratio > 0
     ORDER BY ratio DESC, deadline DESC, id 
