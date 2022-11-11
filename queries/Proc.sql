@@ -321,14 +321,14 @@ BEGIN -- your code here
     RETURN QUERY
     SELECT email, name
     FROM Users
-    WHERE email IN 
+    WHERE email IN (SELECT email FROM Verifies) AND
     (SELECT * FROM
     /* Find email of superbackers based on the two conditions */
     /* C1: funded at least 5 successful projects with at least 3 different ptypes */
     (SELECT * FROM (SELECT B.email FROM Backs B INNER JOIN Projects P ON B.id = P.id WHERE (today - P.deadline <= 30) GROUP BY B.email HAVING COUNT(B.email) >= 5 AND COUNT(DISTINCT P.ptype) >= 3) AS c1
     UNION
     /* C2: funded >= $1500 on successful projects without any refund requests */
-    SELECT * FROM (SELECT B.email FROM Backs B INNER JOIN Projects P ON B.id = P.id WHERE (today - P.deadline <= 30) AND (B.request IS NULL) GROUP BY B.email HAVING SUM(B.amount) >= 1500) AS c2
+    SELECT * FROM (SELECT B.email FROM Backs B INNER JOIN Projects P ON B.id = P.id WHERE (today - P.deadline <= 30) AND (B.request IS NULL) AND NOT EXISTS (SELECT email FROM Refunds R WHERE (today - R.date <= 30)) GROUP BY B.email HAVING SUM(B.amount) >= 1500) AS c2
     ) AS sb)
     ORDER BY email;
 END;
@@ -394,7 +394,7 @@ LOOP
     EXIT WHEN NOT FOUND;
     funded := funded + r.amount;
     project_goal := r.goal;
-    /* Check if project has been funded successfully yet, and if there are already n records in output table */
+    /* Check if project has been funded successfully yet */
     IF funded >= project_goal AND r.ptype = ptype THEN id := r.id; name := r.name; email := r.email; days := r.backing - r.created; RETURN NEXT;
     ELSE CONTINUE;
     END IF;
