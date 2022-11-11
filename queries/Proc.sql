@@ -234,12 +234,11 @@ CREATE OR REPLACE PROCEDURE add_user(
     country TEXT,
     kind TEXT
 ) AS $$ 
-BEGIN -- Begin Transaction, auto rolls back if exception thrown
+BEGIN 
     INSERT INTO Users -- Project specs allows us to assume inputs are valid
     VALUES ( email, name, cc1, cc2);
 
     IF kind in ('BACKER', 'BOTH')  THEN
-
         INSERT INTO Backers
         VALUES ( email, street, num, zip, country);
         END IF;
@@ -248,12 +247,13 @@ BEGIN -- Begin Transaction, auto rolls back if exception thrown
         INSERT INTO Creators
         VALUES ( email, country);
     END IF;
-END; -- Commits transaction only if everything above causes no errors
+END; 
 
 $$ LANGUAGE plpgsql;
 
 
 /* Procedure #2 */
+/* Write a procedure to add a project and the corresponding reward levels */
 CREATE OR REPLACE PROCEDURE add_project(
     id INT,
     email TEXT,
@@ -279,11 +279,17 @@ $$ LANGUAGE plpgsql;
 
 
 /* Procedure #3 */
+/*
+Write a procedure to help an employee with id eid automatically reject
+all refund request where the date of the request is more than 90 days from
+the deadline of the project. 
+*/
+
 CREATE OR REPLACE PROCEDURE auto_reject(eid INT, today DATE) AS $$ 
 DECLARE
 backing RECORD;
 proj_deadline DATE;
-BEGIN -- your code here
+BEGIN 
     FOR backing IN SELECT * FROM Backs
     LOOP
         SELECT deadline INTO proj_deadline FROM Projects p where p.id = backing.id;
@@ -295,7 +301,7 @@ BEGIN -- your code here
             WHERE r.email = backing.email 
             AND r.pid = backing.id
             ) 
-        /* After 90 days of deadline*/
+        /* After 90 days from deadline*/
         AND Abs(backing.request - proj_deadline) > 90
         THEN 
             INSERT INTO Refunds
@@ -321,17 +327,28 @@ BEGIN -- your code here
     RETURN QUERY
     SELECT email, name
     FROM Users
-    WHERE email IN 
+    WHERE email IN (SELECT email FROM Verifies) AND email IN
     (SELECT * FROM
     /* Find email of superbackers based on the two conditions */
     /* C1: funded at least 5 successful projects with at least 3 different ptypes */
     (SELECT * FROM (SELECT B.email FROM Backs B INNER JOIN Projects P ON B.id = P.id WHERE (today - P.deadline <= 30) GROUP BY B.email HAVING COUNT(B.email) >= 5 AND COUNT(DISTINCT P.ptype) >= 3) AS c1
     UNION
     /* C2: funded >= $1500 on successful projects without any refund requests */
-    SELECT * FROM (SELECT B.email FROM Backs B INNER JOIN Projects P ON B.id = P.id WHERE (today - P.deadline <= 30) AND (B.request IS NULL) GROUP BY B.email HAVING SUM(B.amount) >= 1500) AS c2
+    SELECT * FROM (SELECT B.email FROM Backs B INNER JOIN Projects P ON B.id = P.id WHERE (today - P.deadline <= 30) AND (B.request IS NULL) AND NOT EXISTS (SELECT email FROM Refunds R WHERE (today - R.date <= 30)) GROUP BY B.email HAVING SUM(B.amount) >= 1500) AS c2
     ) AS sb)
     ORDER BY email;
 END;
+$$ LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION is_successful_proj(p_id INT) RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1
+        FROM Projects P
+        WHERE P.id = p_id
+        AND (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id) >= P.goal
+    );
+END
 $$ LANGUAGE plpgsql;
 
 /* Function #2  */
@@ -348,7 +365,7 @@ SELECT pr.id, pr.name, pr.email, (SELECT SUM(amount) FROM Backs B WHERE B.id = p
     FROM
     (SELECT DISTINCT P.id, P.name, P.email, P.ptype, P.deadline, (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id)/P.goal AS ratio
     FROM Projects P INNER JOIN Backs B ON P.id = B.id) AS pr
-    WHERE ptype = pr.ptype 
+    WHERE pr.ptype = ptype 
     AND pr.deadline < today 
     AND ratio > 0
     ORDER BY ratio DESC, deadline DESC, id 
@@ -394,7 +411,7 @@ LOOP
     EXIT WHEN NOT FOUND;
     funded := funded + r.amount;
     project_goal := r.goal;
-    /* Check if project has been funded successfully yet, and if there are already n records in output table */
+    /* Check if project has been funded successfully yet */
     IF funded >= project_goal AND r.ptype = ptype THEN id := r.id; name := r.name; email := r.email; days := r.backing - r.created; RETURN NEXT;
     ELSE CONTINUE;
     END IF;

@@ -13,12 +13,11 @@ CREATE OR REPLACE PROCEDURE add_user(
     country TEXT,
     kind TEXT
 ) AS $$ 
-BEGIN -- Begin Transaction, auto rolls back if exception thrown
+BEGIN 
     INSERT INTO Users -- Project specs allows us to assume inputs are valid
     VALUES ( email, name, cc1, cc2);
 
     IF kind in ('BACKER', 'BOTH')  THEN
-
         INSERT INTO Backers
         VALUES ( email, street, num, zip, country);
         END IF;
@@ -27,7 +26,7 @@ BEGIN -- Begin Transaction, auto rolls back if exception thrown
         INSERT INTO Creators
         VALUES ( email, country);
     END IF;
-END; -- Commits transaction only if everything above causes no errors
+END; 
 
 $$ LANGUAGE plpgsql;
 
@@ -62,7 +61,7 @@ CREATE OR REPLACE PROCEDURE auto_reject(eid INT, today DATE) AS $$
 DECLARE
 backing RECORD;
 proj_deadline DATE;
-BEGIN -- your code here
+BEGIN 
     FOR backing IN SELECT * FROM Backs
     LOOP
         SELECT deadline INTO proj_deadline FROM Projects p where p.id = backing.id;
@@ -74,7 +73,7 @@ BEGIN -- your code here
             WHERE r.email = backing.email 
             AND r.pid = backing.id
             ) 
-        /* After 90 days of deadline*/
+        /* After 90 days from deadline*/
         AND Abs(backing.request - proj_deadline) > 90
         THEN 
             INSERT INTO Refunds
@@ -202,6 +201,9 @@ call add_user ( 'yuthuan@live.com.sg', 'YuXuan','123123123','2','Pasir Ris','123
 call print_user_count();
 -- call print_users();
  call print_creators();
+
+-- Should fail
+call add_user ( 'yuthuan@live.com.sg', 'YuXuan','123123123','2','Pasir Ris','123123','512022','Singapore', 'BOTH');
 
 /* Procedure #2  ------------------------------------------------------------------------ */
 \i import.sql;
