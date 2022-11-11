@@ -103,48 +103,65 @@ AFTER INSERT ON Projects
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION check_existence_rewards();
 
+/* ----- TRIGGERS     ----- */
+
 -- Trigger 4: Enforce the constraint that refund can only be approved for refunds requested within 90 days of deadline.
 -- Trigger 4: Also enforce the constraint that refund not requested cannot be approved/rejected.
 
-CREATE OR REPLACE FUNCTION reject_refunds_91_days_after_deadline ()
+CREATE OR REPLACE FUNCTION reject_refunds_91_days_after_deadline()
 RETURNS TRIGGER AS $$ 
 
 DECLARE  
+    num_days_diff INT;
     deadline DATE;
 
 BEGIN
 
     SELECT Projects.deadline INTO deadline
     FROM Backs, Rewards, Projects
-    WHERE Backs.email = NEW.email AND Backs.id = NEW.id AND Backs.name = Rewards.name AND Backs.id = Rewards.id AND Rewards.id = Projects.id;
-    
-    IF (DATEDIFF(day, NEW.date, deadline) > 90) THEN
-        NEW.accepted:=false
+    WHERE Backs.email = NEW.email AND Backs.id = NEW.pid AND Backs.name = Rewards.name AND Backs.id = Rewards.id AND Rewards.id = Projects.id;
+
+    num_days_diff := NEW.date - deadline;
+    RAISE NOTICE 'value of num days diff is %', num_days_diff;
+    IF ((num_days_diff > 90) AND NEW.accepted) THEN
+        RAISE EXCEPTION 'Cannot approve refund requests 90 days after project deadline!';
+        RETURN NULL;
+    ELSE RETURN NEW;
     END IF;
-    RETURN NEW;
 
 END;
-
-
 $$ LANGUAGE plpgsql;
 
-CREATE CONSTRAINT TRIGGER refund_request_auto_rejection
-BEFORE UPDATE ON Refunds
-FOR EACH ROW EXECUTE FUNCTION reject_refunds_91_days_after_deadline();
+CREATE TRIGGER refund_request_auto_rejection
+    BEFORE INSERT
+    ON Refunds
+    FOR EACH ROW 
+EXECUTE FUNCTION reject_refunds_91_days_after_deadline();
 
 CREATE OR REPLACE FUNCTION remove_status_on_refund_request()
 RETURNS TRIGGER AS $$
 
+DECLARE
+    request DATE;
+
 BEGIN
 
-    NEW.accepted:=NULL
-    RETURN NEW;
+    SELECT Backs.request INTO request
+    FROM Backs
+    WHERE Backs.email = NEW.email AND Backs.id = NEW.pid;
+
+    IF (request IS NULL) THEN
+        RAISE EXCEPTION 'Refund not requested cannot be approved/rejected.';
+        RETURN NULL;
+    ELSE
+        RETURN NEW;
+    END IF;
 
 END;
 
 $$ LANGUAGE plpgsql;
 
-CREATE CONSTRAINT TRIGGER no_status_on_refund_request
+CREATE TRIGGER no_status_on_refund_request
 BEFORE INSERT ON Refunds
 FOR EACH ROW EXECUTE FUNCTION remove_status_on_refund_request();
 
@@ -179,7 +196,7 @@ BEFORE INSERT ON Backs
 FOR EACH ROW EXECUTE FUNCTION remove_back_after_deadline();
 
 
--- Trigger 6: Enforce the constraint that refund can only be made for successful projects.
+-- Trigger 6: Enforce the constraint that refund can only be requested for successful projects.
 
 CREATE OR REPLACE FUNCTION check_refund_validity()
 RETURNS TRIGGER AS $$ 
@@ -200,13 +217,14 @@ BEGIN
 
     SELECT SUM(amount) INTO pledged_amt
     FROM Backs
-    WHERE id = NEW.id AND name = NEW.name;
+    WHERE id = NEW.id;
 
     
     IF (pledged_amt >= funding_goal AND NEW.request > deadline) THEN
       RETURN NEW;
     ELSE
-      RETURN NULL;
+      NEW.request:=null;
+      RETURN NEW;
     END IF;
 
 END;
@@ -216,6 +234,8 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER refund_successful_projects
 BEFORE UPDATE ON Backs
 FOR EACH ROW EXECUTE FUNCTION check_refund_validity();
+
+/* ------------------------ */
 
 
 /* ------------------------ */
