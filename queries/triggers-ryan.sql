@@ -114,7 +114,8 @@ BEGIN
     IF (pledged_amt >= funding_goal AND NEW.request > deadline) THEN
       RETURN NEW;
     ELSE
-      RETURN NULL;
+      NEW.request:=null;
+      RETURN NEW;
     END IF;
 
 END;
