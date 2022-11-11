@@ -315,7 +315,7 @@ $$ LANGUAGE plpgsql;
 /* ------------------------ */
 
 /* ----- FUNCTIONS    ----- */
-
+/* Helper function to check whether a project is successful */
 CREATE OR REPLACE FUNCTION is_successful_proj(p_id INT, today DATE) RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (
@@ -342,8 +342,7 @@ BEGIN -- your code here
     SELECT email, name
     FROM Users
     WHERE email IN (SELECT email FROM Verifies) AND email IN
-    (SELECT * FROM
-    /* Find email of superbackers based on the two conditions */
+    /*today Find email of superbackers based on the two conditions */
     /* C1: funded at least 5 successful projects with at least 3 different ptypes */
     (SELECT * FROM (
         SELECT B.email 
@@ -374,18 +373,6 @@ BEGIN -- your code here
     )
     ORDER BY email;
 END;
-$$ LANGUAGE plpgsql;
-
-/* Helper function to check whether a project is successful */
-CREATE OR REPLACE FUNCTION is_successful_proj(p_id INT) RETURNS BOOLEAN AS $$
-BEGIN
-    RETURN EXISTS (
-        SELECT 1
-        FROM Projects P
-        WHERE P.id = p_id
-        AND (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id) >= P.goal
-    );
-END
 $$ LANGUAGE plpgsql;
 
 /* Function #2  */
@@ -434,10 +421,13 @@ CREATE OR REPLACE FUNCTION find_popular(today DATE, ptype TEXT) RETURNS TABLE(
 ) AS $$ -- add declaration here
 DECLARE
     curs CURSOR FOR (SELECT DISTINCT P.id, P.name, P.email, P.ptype, P.created, P.deadline, P.goal, B.backing, B.amount
-    FROM Projects P INNER JOIN Backs B ON P.id = B.id WHERE (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id) >= P.goal AND P.created <= today GROUP BY P.id, B.backing, B.amount);
+    -- Projects where we have execeeded the goal at some point, grouped by id backing and amount
+    FROM Projects P INNER JOIN Backs B ON P.id = B.id WHERE (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id) >= P.goal AND P.created <= today GROUP BY P.id, B.backing, B.amount); 
     r RECORD;
     funded INT := 0;
     project_goal NUMERIC := 0;
+    look_for_next BOOLEAN := FALSE;
+    prev_proj_id INT := 0;
 BEGIN -- your code here
 -- Find no. of days it took to fund a project successfully
 -- For each backing date, check if total funds reached project goal
@@ -445,10 +435,22 @@ OPEN curs;
 LOOP
     FETCH curs INTO r;
     EXIT WHEN NOT FOUND;
+
+    IF look_for_next = TRUE THEN 
+        IF  r.id <> prev_proj_id THEN
+        look_for_next := FALSE;
+        ELSE CONTINUE; 
+        END IF;
+    END IF;
+
+    prev_proj_id = r.id;
     funded := funded + r.amount;
     project_goal := r.goal;
     /* Check if project has been funded successfully yet */
-    IF funded >= project_goal AND r.ptype = ptype THEN id := r.id; name := r.name; email := r.email; days := r.backing - r.created; RETURN NEXT;
+    IF funded >= project_goal AND r.ptype = ptype 
+        THEN 
+        id := r.id; name := r.name; email := r.email; days := r.backing - r.created; look_for_next := TRUE;
+        RETURN NEXT;
     ELSE CONTINUE;
     END IF;
     funded := 0;
