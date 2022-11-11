@@ -7,7 +7,7 @@ RETURNS TRIGGER AS $$
 
 DECLARE  
 	count_backers INT;
-  count_creators INT;
+    count_creators INT;
 
 BEGIN
 
@@ -122,7 +122,7 @@ BEGIN
     WHERE Backs.email = NEW.email AND Backs.id = NEW.pid AND Backs.name = Rewards.name AND Backs.id = Rewards.id AND Rewards.id = Projects.id;
 
     num_days_diff := NEW.date - deadline;
-    RAISE NOTICE 'value of num days diff is %', num_days_diff;
+    -- RAISE NOTICE 'value of num days diff is %', num_days_diff;
     IF ((num_days_diff > 90) AND NEW.accepted) THEN
         RAISE EXCEPTION 'Cannot approve refund requests 90 days after project deadline!';
         RETURN NULL;
@@ -166,8 +166,8 @@ BEFORE INSERT ON Refunds
 FOR EACH ROW EXECUTE FUNCTION remove_status_on_refund_request();
 
 
--- Trigger 5: Enforce the constraint that backers back before deadline.
 
+-- Trigger 5: Enforce the constraint that backers back before deadline.
 CREATE OR REPLACE FUNCTION remove_back_after_deadline()
 RETURNS TRIGGER AS $$ 
 
@@ -185,10 +185,7 @@ BEGIN
     ELSE
       RETURN NEW;
     END IF;
-
 END;
-
-
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER back_before_deadline
@@ -207,11 +204,7 @@ DECLARE
 	funding_goal NUMERIC;
 BEGIN
 
-    SELECT Projects.deadline INTO deadline
-    FROM Projects, Rewards
-    WHERE Rewards.name = NEW.name AND Rewards.id = NEW.id AND Projects.id = Rewards.id;
-
-    SELECT Projects.goal INTO funding_goal
+    SELECT Projects.deadline, Projects.goal INTO deadline, funding_goal
     FROM Projects, Rewards
     WHERE Rewards.name = NEW.name AND Rewards.id = NEW.id AND Projects.id = Rewards.id;
 
@@ -219,12 +212,10 @@ BEGIN
     FROM Backs
     WHERE id = NEW.id;
 
-    
     IF (pledged_amt >= funding_goal AND NEW.request > deadline) THEN
       RETURN NEW;
     ELSE
-      NEW.request:=null;
-      RETURN NEW;
+      RETURN NULL;
     END IF;
 
 END;
@@ -322,7 +313,7 @@ BEGIN
             AND r.pid = backing.id
             ) 
         /* After 90 days from deadline*/
-        AND backing.request - proj_deadline > 90
+        AND (backing.request - proj_deadline) > 90
         THEN 
             INSERT INTO Refunds
             values(backing.email, backing.id, eid, today, FALSE);
