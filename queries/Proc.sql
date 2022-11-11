@@ -234,12 +234,11 @@ CREATE OR REPLACE PROCEDURE add_user(
     country TEXT,
     kind TEXT
 ) AS $$ 
-BEGIN -- Begin Transaction, auto rolls back if exception thrown
+BEGIN 
     INSERT INTO Users -- Project specs allows us to assume inputs are valid
     VALUES ( email, name, cc1, cc2);
 
     IF kind in ('BACKER', 'BOTH')  THEN
-
         INSERT INTO Backers
         VALUES ( email, street, num, zip, country);
         END IF;
@@ -248,12 +247,13 @@ BEGIN -- Begin Transaction, auto rolls back if exception thrown
         INSERT INTO Creators
         VALUES ( email, country);
     END IF;
-END; -- Commits transaction only if everything above causes no errors
+END; 
 
 $$ LANGUAGE plpgsql;
 
 
 /* Procedure #2 */
+/* Write a procedure to add a project and the corresponding reward levels */
 CREATE OR REPLACE PROCEDURE add_project(
     id INT,
     email TEXT,
@@ -279,11 +279,17 @@ $$ LANGUAGE plpgsql;
 
 
 /* Procedure #3 */
+/*
+Write a procedure to help an employee with id eid automatically reject
+all refund request where the date of the request is more than 90 days from
+the deadline of the project. 
+*/
+
 CREATE OR REPLACE PROCEDURE auto_reject(eid INT, today DATE) AS $$ 
 DECLARE
 backing RECORD;
 proj_deadline DATE;
-BEGIN -- your code here
+BEGIN 
     FOR backing IN SELECT * FROM Backs
     LOOP
         SELECT deadline INTO proj_deadline FROM Projects p where p.id = backing.id;
@@ -295,7 +301,7 @@ BEGIN -- your code here
             WHERE r.email = backing.email 
             AND r.pid = backing.id
             ) 
-        /* After 90 days of deadline*/
+        /* After 90 days from deadline*/
         AND Abs(backing.request - proj_deadline) > 90
         THEN 
             INSERT INTO Refunds
