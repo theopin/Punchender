@@ -315,6 +315,20 @@ $$ LANGUAGE plpgsql;
 /* ------------------------ */
 
 /* ----- FUNCTIONS    ----- */
+
+CREATE OR REPLACE FUNCTION is_successful_proj(p_id INT, today DATE) RETURNS BOOLEAN AS $$
+BEGIN
+    RETURN EXISTS (
+        SELECT 1
+        FROM Projects P
+        WHERE P.id = p_id
+            AND (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id) >= P.goal -- Total pledged exceeds funding goal
+            -- DEADLINE HAS PASSED
+            AND p.deadline < today
+    );
+END
+$$ LANGUAGE plpgsql;
+
 /* Function #1  */
 CREATE OR REPLACE FUNCTION find_superbackers(today DATE) RETURNS TABLE(email TEXT, name TEXT) AS $$ -- add declaration here
 -- superbacker: must be verified AND
@@ -327,18 +341,62 @@ BEGIN -- your code here
     RETURN QUERY
     SELECT email, name
     FROM Users
-    WHERE email IN (SELECT email FROM Verifies) AND
-    (SELECT * FROM
+    WHERE email IN (SELECT email FROM Verifies) AND email IN
     /* Find email of superbackers based on the two conditions */
     /* C1: funded at least 5 successful projects with at least 3 different ptypes */
-    (SELECT * FROM (SELECT B.email FROM Backs B INNER JOIN Projects P ON B.id = P.id WHERE (today - P.deadline <= 30) GROUP BY B.email HAVING COUNT(B.email) >= 5 AND COUNT(DISTINCT P.ptype) >= 3) AS c1
+    (SELECT * FROM (
+        SELECT B.email 
+        FROM Backs B INNER JOIN Projects P 
+        ON B.id = P.id 
+        WHERE (today - P.deadline <= 30)  -- Deadline within 30 days of given date
+            AND is_successful_proj(P.id, today) -- Project is successful
+        GROUP BY B.email 
+        HAVING COUNT(B.email) >= 5  -- At least 5 projects
+        AND COUNT(DISTINCT P.ptype) >= 3) -- At least 3 different project types
+        AS c1 
     UNION
     /* C2: funded >= $1500 on successful projects without any refund requests */
-    SELECT * FROM (SELECT B.email FROM Backs B INNER JOIN Projects P ON B.id = P.id WHERE (today - P.deadline <= 30) AND (B.request IS NULL) AND NOT EXISTS (SELECT email FROM Refunds R WHERE (today - R.date <= 30)) GROUP BY B.email HAVING SUM(B.amount) >= 1500) AS c2
-    ) AS sb)
+    SELECT * FROM (
+        SELECT B.email 
+        FROM Backs B 
+        WHERE 
+            NOT EXISTS (SELECT * FROM Backs B2 WHERE B2.email = B.email AND B2.request - today <= 30)   -- Backer must not have any refund request, accepted/rejected refunds in the last 30 days
+            AND 1500 <= ( -- Total funding at least 1500
+                 SELECT SUM(B2.amount) -- Actual total funding from this one user in the last 30 days on any succesful projects
+                 FROM Backs B2 INNER JOIN Projects P
+                 ON B2.id = P.id 
+                 WHERE B2.email = B.email
+                    AND is_successful_proj(P.id, today) -- Project is successful
+                    AND today - P.deadline <= 30 -- Deadline of the project within 30 days of given date (in the past)
+                 ) 
+        ) AS c2
+    )
     ORDER BY email;
 END;
 $$ LANGUAGE plpgsql;
+
+ SELECT * FROM (
+        SELECT B.email 
+        FROM Backs B 
+        WHERE 
+            NOT EXISTS (SELECT * FROM Backs B2 WHERE B2.email = B.email AND B2.request - '4-28-2022' <= 30)   -- Backer must not have any refund request, accepted/rejected refunds in the last 30 days
+            AND 1500 <= ( -- Total funding at least 1500
+                 SELECT SUM(B2.amount) -- Actual total funding from this one user in the last 30 days on any succesful projects
+                 FROM Backs B2 INNER JOIN Projects P
+                 ON B2.id = P.id 
+                 WHERE B2.email = B.email
+                    AND is_successful_proj(P.id, '4-28-2022') -- Project is successful
+                    AND '4-28-2022' - P.deadline <= 30 -- Deadline of the project within 30 days of given date (in the past)
+                 ) 
+        ) AS c2;
+-- SELECT * FROM Backs B2 WHERE B2.email = 'otoner1n@amazonaws.com' AND B2.request - '4-28-2022' <= 30;
+
+-- SELECT SUM(B2.amount) -- Actual total funding from this one user in the last 30 days on any succesful projects
+-- FROM Backs B2, Projects P
+-- WHERE B2.email = 'otoner1n@amazonaws.com'
+-- AND P.id = 22
+-- AND is_successful_proj(P.id, '4-28-2022') -- Project is successful
+-- AND '4-28-2022' - P.deadline <= 30 ;-- Deadline of the project within 30 days of given date (in the past)
 
 /* Function #2  */
 -- success metric: ratio of funded $/ goal $
@@ -352,9 +410,9 @@ CREATE OR REPLACE FUNCTION find_top_success(n INT, today DATE, ptype TEXT) RETUR
 ) AS $$
 SELECT pr.id, pr.name, pr.email, (SELECT SUM(amount) FROM Backs B WHERE B.id = pr.id) AS amount
     FROM
-    (SELECT DISTINCT P.id, P.name, P.email, P.ptype, P.deadline, (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id)/P.goal AS ratio
+    (SELECT DISTINCT P.id, P.name, P.email, P.ptype , P.deadline, (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id)/P.goal AS ratio
     FROM Projects P INNER JOIN Backs B ON P.id = B.id) AS pr
-    WHERE ptype = pr.ptype 
+    WHERE pr.ptype = ptype 
     AND pr.deadline < today 
     AND ratio > 0
     ORDER BY ratio DESC, deadline DESC, id 
