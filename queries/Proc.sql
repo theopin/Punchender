@@ -302,7 +302,7 @@ BEGIN
             AND r.pid = backing.id
             ) 
         /* After 90 days from deadline*/
-        AND Abs(backing.request - proj_deadline) > 90
+        AND backing.request - proj_deadline > 90
         THEN 
             INSERT INTO Refunds
             values(backing.email, backing.id, eid, today, FALSE);
