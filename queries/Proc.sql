@@ -156,15 +156,15 @@ RETURNS TRIGGER AS $$
 
 DECLARE  
 	deadline DATE;
-
+	creation_date DATE;
 BEGIN
-
-    SELECT Projects.deadline INTO deadline
+    SELECT Projects.deadline, Projects.created INTO deadline, creation_date
     FROM Projects, Rewards
     WHERE Rewards.name = NEW.name AND Rewards.id = NEW.id AND Projects.id = Rewards.id;
-    
-    IF (NEW.backing > deadline) THEN
-      RETURN NULL;
+
+    IF (NEW.backing > deadline) OR (NEW.backing < creation_date) 
+    THEN
+      RETURN NULL; 
     ELSE
       RETURN NEW;
     END IF;
