@@ -336,7 +336,7 @@ BEGIN -- your code here
     /* C2: funded >= $1500 on successful projects without any refund requests */
     SELECT * FROM (SELECT B.email FROM Backs B INNER JOIN Projects P ON B.id = P.id WHERE (today - P.deadline <= 30) AND (B.request IS NULL) GROUP BY B.email HAVING SUM(B.amount) >= 1500) AS c2
     ) AS sb)
-    ORDER BY email DESC;
+    ORDER BY email;
 END;
 $$ LANGUAGE plpgsql;
 
