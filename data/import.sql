@@ -92,14 +92,14 @@ CREATE TABLE Refunds (
 );
 
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/employees.csv'
+\set localpath '/Users/ryanguai/punchender/data/employees.csv'
 
 COPY employees(id, name, salary)
 FROM :'localpath'
 DELIMITER ','
 CSV HEADER;
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/users.csv'
+\set localpath '/Users/ryanguai/punchender/data/users.csv'
 
 COPY users(email,name,cc1,cc2)
 FROM :'localpath'
@@ -107,7 +107,7 @@ DELIMITER ','
 CSV HEADER;
 
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/creators.csv'
+\set localpath '/Users/ryanguai/punchender/data/creators.csv'
 
 COPY Creators (email, country)
 FROM :'localpath'
@@ -115,42 +115,42 @@ DELIMITER ','
 CSV HEADER;
 
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/backers.csv'
+\set localpath '/Users/ryanguai/punchender/data/backers.csv'
 
 COPY Backers(email,street,num,zip,country)
 FROM :'localpath'
 DELIMITER ','
 CSV HEADER;
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/project_types.csv'
+\set localpath '/Users/ryanguai/punchender/data/project_types.csv'
 
 COPY ProjectTypes (name, id)
 FROM :'localpath'
 DELIMITER ','
 CSV HEADER;
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/projects.csv'
+\set localpath '/Users/ryanguai/punchender/data/projects.csv'
 
 COPY Projects (id,email,ptype,created,name,deadline,goal)
 FROM :'localpath'
 DELIMITER ','
 CSV HEADER;
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/updates.csv'
+\set localpath '/Users/ryanguai/punchender/data/updates.csv'
 
 COPY Updates (time,id,message)
 FROM :'localpath'
 DELIMITER ','
 CSV HEADER;
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/rewards.csv'
+\set localpath '/Users/ryanguai/punchender/data/rewards.csv'
 
 COPY Rewards (name, id, min_amt)
 FROM :'localpath'
 DELIMITER ','
 CSV HEADER;
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/verifies.csv'
+\set localpath '/Users/ryanguai/punchender/data/verifies.csv'
 
 COPY Verifies (email,id,verified)
 FROM :'localpath'
@@ -158,14 +158,14 @@ DELIMITER ','
 CSV HEADER;
 
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/backs.csv'
+\set localpath '/Users/ryanguai/punchender/data/backs.csv'
 
 COPY Backs (email, name, id, backing, request, amount)
 FROM :'localpath'
 DELIMITER ','
 CSV HEADER;
 
-\set localpath 'C:/Users/thngy/Desktop/CS2102/punchender/data/refunds.csv'
+\set localpath '/Users/ryanguai/punchender/data/refunds.csv'
 
 COPY Refunds (email, pid, eid, date, accepted)
 FROM :'localpath'
