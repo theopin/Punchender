@@ -45,7 +45,7 @@ CREATE OR REPLACE FUNCTION check_pledge_amt ()
 RETURNS TRIGGER AS $$ 
 
 DECLARE  
-	reward_min_amt INT;
+	reward_min_amt NUMERIC;
 
 BEGIN
 
@@ -173,15 +173,15 @@ RETURNS TRIGGER AS $$
 
 DECLARE  
 	deadline DATE;
-
+	creation_date DATE;
 BEGIN
-
-    SELECT Projects.deadline INTO deadline
+    SELECT Projects.deadline, Projects.created INTO deadline, creation_date
     FROM Projects, Rewards
     WHERE Rewards.name = NEW.name AND Rewards.id = NEW.id AND Projects.id = Rewards.id;
-    
-    IF (NEW.backing > deadline) THEN
-      RETURN NULL;
+
+    IF (NEW.backing > deadline) OR (NEW.backing < creation_date) 
+    THEN
+      RETURN NULL; 
     ELSE
       RETURN NEW;
     END IF;
@@ -203,8 +203,8 @@ RETURNS TRIGGER AS $$
 
 DECLARE  
 	deadline DATE;
-	pledged_amt INT;
-	funding_goal INT;
+	pledged_amt NUMERIC;
+	funding_goal NUMERIC;
 BEGIN
 
     SELECT Projects.deadline INTO deadline
@@ -322,7 +322,7 @@ BEGIN
             AND r.pid = backing.id
             ) 
         /* After 90 days from deadline*/
-        AND Abs(backing.request - proj_deadline) > 90
+        AND backing.request - proj_deadline > 90
         THEN 
             INSERT INTO Refunds
             values(backing.email, backing.id, eid, today, FALSE);
@@ -444,7 +444,7 @@ DECLARE
     -- Projects where we have execeeded the goal at some point, grouped by id backing and amount
     FROM Projects P INNER JOIN Backs B ON P.id = B.id WHERE (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id) >= P.goal AND P.created <= today GROUP BY P.id, B.backing, B.amount); 
     r RECORD;
-    funded INT := 0;
+    funded NUMERIC := 0;
     project_goal NUMERIC := 0;
     look_for_next BOOLEAN := FALSE;
     prev_proj_id INT := 0;
