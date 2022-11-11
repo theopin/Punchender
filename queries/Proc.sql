@@ -340,6 +340,7 @@ BEGIN -- your code here
 END;
 $$ LANGUAGE plpgsql;
 
+/* Helper function to check whether a project is successful */
 CREATE OR REPLACE FUNCTION is_successful_proj(p_id INT) RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (
@@ -363,13 +364,12 @@ CREATE OR REPLACE FUNCTION find_top_success(n INT, today DATE, ptype TEXT) RETUR
 ) AS $$
 SELECT pr.id, pr.name, pr.email, (SELECT SUM(amount) FROM Backs B WHERE B.id = pr.id) AS amount
     FROM
-    (SELECT DISTINCT P.id, P.name, P.email, P.ptype, P.deadline, (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id)/P.goal AS ratio
-    FROM Projects P INNER JOIN Backs B ON P.id = B.id) AS pr
-    WHERE pr.ptype = ptype 
-    AND pr.deadline < today 
-    AND ratio > 0
-    ORDER BY ratio DESC, deadline DESC, id 
-    LIMIT n
+    (SELECT DISTINCT P.id, P.name, P.email, P.ptype AS t_ptype, P.deadline, (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id)/P.goal AS ratio
+    FROM Projects P INNER JOIN Backs B ON P.id = B.id WHERE is_successful_proj(P.id)) AS pr
+    WHERE pr.deadline < today
+    AND pr.t_ptype = ptype
+    ORDER BY ratio DESC, deadline DESC, id
+    LIMIT n;
 $$ LANGUAGE sql;
 
 /* Function #3  */
