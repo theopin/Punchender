@@ -179,7 +179,7 @@ BEGIN
     FROM Projects, Rewards
     WHERE Rewards.name = NEW.name AND Rewards.id = NEW.id AND Projects.id = Rewards.id;
 
-    IF (NEW.backing > deadline) OR (NEW.backing < creation_date) 
+    IF (NEW.backing > deadline) OR (NEW.backing <= creation_date) 
     THEN
       RETURN NULL; 
     ELSE
