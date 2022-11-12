@@ -20,7 +20,7 @@ BEGIN
     WHERE email = NEW.email;
     
     IF (count_backers = 0 AND count_creators = 0) THEN
-      RAISE EXCEPTION 'No Entries in Backers or Creators found for %. Rollback!', NEW.email;
+      RAISE EXCEPTION 'Trigger 1: No Entries in Backers or Creators found for %. Rollback!', NEW.email;
       RETURN NULL;
     ELSE
       RETURN NEW;
@@ -54,6 +54,7 @@ BEGIN
     WHERE name = NEW.name AND id = NEW.id;
     
     IF (NEW.amount < reward_min_amt) THEN
+      RAISE EXCEPTION 'Trigger 2: Check _pledged amt amount %. Rollback!', NEW.amount;
       RETURN NULL;
     ELSE
       RETURN NEW;
@@ -86,7 +87,7 @@ BEGIN
 
     
     IF (count_rewards = 0) THEN
-      RAISE EXCEPTION 'No Rewards found. Rollback!';
+      RAISE EXCEPTION 'Trigger 3: No Rewards found. Rollback!';
       RETURN NULL;
     ELSE
       RETURN NEW;
@@ -124,7 +125,7 @@ BEGIN
     num_days_diff := NEW.date - deadline;
     -- RAISE NOTICE 'value of num days diff is %', num_days_diff;
     IF ((num_days_diff > 90) AND NEW.accepted) THEN
-        RAISE EXCEPTION 'Cannot approve refund requests 90 days after project deadline!';
+        RAISE EXCEPTION 'Trigger 4: Cannot approve refund requests 90 days after project deadline!';
         RETURN NULL;
     ELSE RETURN NEW;
     END IF;
@@ -151,7 +152,7 @@ BEGIN
     WHERE Backs.email = NEW.email AND Backs.id = NEW.pid;
 
     IF (request IS NULL) THEN
-        RAISE EXCEPTION 'Refund not requested cannot be approved/rejected.';
+        RAISE EXCEPTION 'Trigger 4: Refund not requested cannot be approved/rejected.';
         RETURN NULL;
     ELSE
         RETURN NEW;
@@ -181,6 +182,8 @@ BEGIN
 
     IF (NEW.backing > deadline) OR (NEW.backing <= creation_date) 
     THEN
+        RAISE EXCEPTION 'Trigger 5: Backing date not within dealdine and creation date';
+        RETURN NULL;
       RETURN NULL; 
     ELSE
       RETURN NEW;
@@ -215,6 +218,7 @@ BEGIN
     IF (pledged_amt >= funding_goal AND NEW.request > deadline) THEN
       RETURN NEW;
     ELSE
+      RAISE EXCEPTION 'Trigger 6: Not a succesfful project';
       RETURN NULL;
     END IF;
 
