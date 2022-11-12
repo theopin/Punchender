@@ -433,7 +433,10 @@ CREATE OR REPLACE FUNCTION find_popular(today DATE, ptype TEXT) RETURNS TABLE(
 DECLARE
     curs CURSOR FOR (SELECT DISTINCT P.id, P.name, P.email, P.ptype, P.created, P.deadline, P.goal, B.backing, B.amount
     -- Projects where we have execeeded the goal at some point, grouped by id backing and amount
-    FROM Projects P INNER JOIN Backs B ON P.id = B.id WHERE (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id) >= P.goal AND P.created <= today GROUP BY P.id, B.backing, B.amount); 
+    FROM Projects P INNER JOIN Backs B ON P.id = B.id WHERE (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id) >= P.goal 
+                                                                AND P.created <= today 
+                                                                GROUP BY P.id, B.backing, B.amount
+                                                                ORDER BY P.id, B.backing); 
     r RECORD;
     funded NUMERIC := 0;
     project_goal NUMERIC := 0;
