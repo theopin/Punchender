@@ -41,7 +41,7 @@ FOR EACH ROW EXECUTE FUNCTION check_existence_backers_creators();
 
 -- Trigger 2: Backers must pledge an amount greater than or equal to the minimum amount for the reward level.
 
-CREATE OR REPLACE FUNCTION check_pledge_amt () 
+CREATE OR REPLACE FUNCTION check_pledge_amt() 
 RETURNS TRIGGER AS $$ 
 
 DECLARE  
@@ -197,7 +197,6 @@ FOR EACH ROW EXECUTE FUNCTION remove_back_after_deadline();
 
 
 -- Trigger 6: Enforce the constraint that refund can only be requested for successful projects.
-
 CREATE OR REPLACE FUNCTION check_refund_validity()
 RETURNS TRIGGER AS $$ 
 
