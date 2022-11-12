@@ -118,7 +118,7 @@ DECLARE
 
 BEGIN
 
-    SELECT Projects.deadline INTO deadline
+    SELECT Backs.request - Projects.deadline INTO num_days_diff
     FROM Backs, Rewards, Projects
     WHERE Backs.email = NEW.email AND Backs.id = NEW.pid AND Backs.name = Rewards.name AND Backs.id = Rewards.id AND Rewards.id = Projects.id;
 
