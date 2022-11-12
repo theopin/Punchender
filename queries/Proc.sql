@@ -399,7 +399,7 @@ CREATE OR REPLACE FUNCTION find_top_success(n INT, today DATE, ptype TEXT) RETUR
 SELECT pr.id, pr.name, pr.email, (SELECT SUM(amount) FROM Backs B WHERE B.id = pr.id) AS amount
     FROM
     (SELECT DISTINCT P.id, P.name, P.email, P.ptype AS t_ptype, P.deadline, (SELECT SUM(amount) FROM Backs B WHERE B.id = P.id)/P.goal AS ratio
-    FROM Projects P INNER JOIN Backs B ON P.id = B.id WHERE is_successful_proj(P.id)) AS pr
+    FROM Projects P INNER JOIN Backs B ON P.id = B.id WHERE is_successful_proj(P.id, today)) AS pr
     WHERE pr.deadline < today
     AND pr.t_ptype = ptype
     ORDER BY ratio DESC, deadline DESC, id
